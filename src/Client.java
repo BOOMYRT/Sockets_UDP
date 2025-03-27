@@ -2,10 +2,7 @@
 import java.net.*;
 
 public class Client {
-    public Client() {
-    }
-
-    public void run(){
+    public static void main(String[] args) {
         try {
             // Création du canal
             DatagramSocket socketClient = new DatagramSocket();
@@ -15,7 +12,7 @@ public class Client {
             // Émettre
             String message = "Bonjour !";
             envoyees = message.getBytes();
-            DatagramPacket messageEnvoye = new DatagramPacket(envoyees, envoyees.length, adresseClient, 6666);
+            DatagramPacket messageEnvoye = new DatagramPacket(envoyees, envoyees.length, adresseClient, 50000);
             socketClient.send(messageEnvoye);
             // Recevoir
             DatagramPacket paquetRecu = new DatagramPacket(recues, recues.length);
