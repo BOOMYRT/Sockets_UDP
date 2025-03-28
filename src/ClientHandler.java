@@ -18,6 +18,7 @@ public class ClientHandler implements Runnable {
             this.bufferReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             this.clientUsername = bufferReader.readLine();
             clientHandlers.add(this);
+
             //envoyer message à tous les clients connectés dans le chat lorsqu'un nouveau client rejoint le chat
             broadcastMessage("SERVEUR: "+ clientUsername +" a rejoint le chat !");
         } catch (IOException e) {
