@@ -1,38 +1,45 @@
-
 import java.net.*;
+import java.util.*;
 
 public class Serveur {
+    private static Map<Integer, DatagramPacket> clients = new HashMap<>();  // Map pour stocker les paquets des clients
+
     public static void main(String[] args) {
         try {
-            //création du canal
-            DatagramSocket socketServeur = new DatagramSocket(null);
+            // Création du canal
+            DatagramSocket socketServeur = new DatagramSocket(50000);  // Serveur écoute sur le port 50000
+            byte[] recues = new byte[1024];  // Tampon pour la réception des messages
+            byte[] envoyees;  // Tampon pour l'envoi des messages
 
-            //Réservation du port
-            InetSocketAddress adresse = new InetSocketAddress("localhost", 50000);
-            socketServeur.bind(adresse);
-            byte[] recues = new byte[1024]; //tampon d'émission
-            byte[] envoyees; //tampon de réception
+            System.out.println("Serveur en écoute...");
 
-            while(true) {
-                //Recevoir
+            while (true) {
+                // Recevoir le paquet du client
                 DatagramPacket paquetRecu = new DatagramPacket(recues, recues.length);
                 socketServeur.receive(paquetRecu);
                 String message = new String(paquetRecu.getData(), 0, paquetRecu.getLength());
-                System.out.println("Reçu: " + message);
-
-                //Émettre
                 InetAddress adrClient = paquetRecu.getAddress();
-                int prtClient = paquetRecu.getPort();
-                String reponse = "Accusé de reception";
-                envoyees = reponse.getBytes();
-                DatagramPacket paquetEnvoye = new DatagramPacket(envoyees, envoyees.length, adrClient, prtClient);
-                socketServeur.send(paquetEnvoye);
-            }
-            //libérer le canal
-//            socketServeur.close();
+                int portClient = paquetRecu.getPort();
 
-        }
-        catch (Exception e) {
+                System.out.println("Message reçu de " + adrClient + ":" + portClient + " - " + message);
+
+                // Enregistrer ou mettre à jour les informations du client
+                clients.put(portClient, paquetRecu);
+
+                // Si un autre client est déjà enregistré, retransmettre le message
+                for (Map.Entry<Integer, DatagramPacket> entry : clients.entrySet()) {
+                    if (entry.getKey() != portClient) {
+                        // L'autre client a déjà envoyé un message, on lui envoie le message
+                        InetAddress adrAutreClient = entry.getValue().getAddress();
+                        int portAutreClient = entry.getValue().getPort();
+                        envoyees = message.getBytes();
+                        DatagramPacket paquetEnvoye = new DatagramPacket(envoyees, envoyees.length, adrAutreClient, portAutreClient);
+                        socketServeur.send(paquetEnvoye);
+                        System.out.println("Message envoyé à " + adrAutreClient + ":" + portAutreClient);
+                    }
+                }
+            }
+        } catch (Exception e) {
             System.err.println(e);
         }
     }
