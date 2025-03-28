@@ -1,39 +1,49 @@
 
+import java.io.IOException;
 import java.net.*;
 
 public class Serveur {
-    public static void main(String[] args) {
+
+    private ServerSocket serverSocket;
+
+    public Serveur(ServerSocket serverSocket) {
+        this.serverSocket = serverSocket;
+    }
+
+    public void startServer() {
         try {
-            //création du canal
-            DatagramSocket socketServeur = new DatagramSocket(null);
 
-            //Réservation du port
-            InetSocketAddress adresse = new InetSocketAddress("localhost", 50000);
-            socketServeur.bind(adresse);
-            byte[] recues = new byte[1024]; //tampon d'émission
-            byte[] envoyees; //tampon de réception
-
-            while(true) {
-                //Recevoir
-                DatagramPacket paquetRecu = new DatagramPacket(recues, recues.length);
-                socketServeur.receive(paquetRecu);
-                String message = new String(paquetRecu.getData(), 0, paquetRecu.getLength());
-                System.out.println("Reçu: " + message);
-
-                //Émettre
-                InetAddress adrClient = paquetRecu.getAddress();
-                int prtClient = paquetRecu.getPort();
-                String reponse = "Accusé de reception";
-                envoyees = reponse.getBytes();
-                DatagramPacket paquetEnvoye = new DatagramPacket(envoyees, envoyees.length, adrClient, prtClient);
-                socketServeur.send(paquetEnvoye);
+            while(!serverSocket.isClosed()) {
+                Socket socket = serverSocket.accept();
+                System.out.println("Un nouveau client s'est connecté");
+                ClientHandler clientHandler = new ClientHandler(socket);
+                Thread thread = new Thread(clientHandler);
+                thread.start();
             }
-            //libérer le canal
-//            socketServeur.close();
+
 
         }
         catch (Exception e) {
             System.err.println(e);
         }
+    }
+
+    public void closeServerSocket(){
+        try{
+            if(serverSocket!=null){
+                serverSocket.close();
+            }
+
+        }catch (Exception e){
+            System.err.println(e);
+        }
+    }
+
+    public static void main(String[] args) throws IOException {
+
+        ServerSocket serverSocket = new ServerSocket(50000);
+        Serveur serveur = new Serveur(serverSocket);
+        serveur.startServer();
+
     }
 }
