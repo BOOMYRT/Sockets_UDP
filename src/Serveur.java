@@ -40,10 +40,8 @@ public class Serveur {
     }
 
     public static void main(String[] args) throws IOException {
-
         ServerSocket serverSocket = new ServerSocket(50000);
         Serveur serveur = new Serveur(serverSocket);
         serveur.startServer();
-
     }
 }
