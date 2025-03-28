@@ -57,7 +57,7 @@ public class ClientHandler implements Runnable {
     //inform other clients when a client leaves the chat
     public void removeClientHandler(){
         clientHandlers.remove(this);
-        broadcastMessage("SERVEUR : " + clientUsername + "a quitté le chat !");
+        broadcastMessage("SERVEUR : " + clientUsername + " a quitté le chat !");
     }
 
     public void closeEverything(Socket socket, BufferedReader bufferedReader, BufferedWriter bufferedWriter){
