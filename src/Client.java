@@ -33,7 +33,7 @@ public class Client {
 
         // Permet à l'utilisateur d'envoyer un message à un autre utilisateur
         while (true) {
-            System.out.println("Entrez le nom de l'utilisateur à qui vous voulez envoyer un message (ou 'exit' pour quitter) :");
+            System.out.println("Destinataire (All pour Broadcast | 'exit' pour quitter) :");
             String recipient = scanner.nextLine();
             if (recipient.equals("exit")) {
                 break;
