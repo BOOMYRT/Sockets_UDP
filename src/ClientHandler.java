@@ -1,79 +1,39 @@
-import javax.imageio.IIOException;
+
+import java.awt.*;
 import java.io.*;
-import java.net.Socket;
-import java.util.ArrayList;
 
-public class ClientHandler implements Runnable {
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
 
-    public static ArrayList<ClientHandler> clientHandlers = new ArrayList<>();
-    private Socket socket;
-    private BufferedReader bufferReader;
-    private BufferedWriter bufferWriter;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+
+public class ClientHandler extends Thread {
+
+    private DatagramSocket socket;
+    private byte[] incoming = new byte[1024];
+    private TextArea textArea;
     private String clientUsername;
 
-    public ClientHandler(Socket socket){
-        try{
-            this.socket=socket;
-            this.bufferWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-            this.bufferReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            this.clientUsername = bufferReader.readLine();
-            clientHandlers.add(this);
-
-            //envoyer message à tous les clients connectés dans le chat lorsqu'un nouveau client rejoint le chat
-            broadcastMessage("SERVEUR: "+ clientUsername +" a rejoint le chat !");
-        } catch (IOException e) {
-            closeEverything(socket, bufferReader, bufferWriter);
-        }
+    public ClientHandler(DatagramSocket socket, TextArea textArea){
+        this.socket=socket;
+        this.textArea=textArea;
     }
 
     @Override
     public void run() {
-        String messageFromClient;
-        while(socket.isConnected()){
-            try{
-                messageFromClient = bufferReader.readLine();
-                broadcastMessage(messageFromClient);
-            } catch (IOException e) {
-                closeEverything(socket,bufferReader,bufferWriter);
-                break;
+        System.out.println("Création du Thread");
+        while(true){
+            DatagramPacket packet = new DatagramPacket(incoming, incoming.length);
+            try {
+                socket.receive(packet);
+            }catch (IOException e){
+                throw new RuntimeException(e);
             }
-        }
-    }
+            String message = new String(packet.getData(),0, packet.getLength())+"\n";
+            String current = textArea.getText();
+            textArea.setText(current + message);
 
-    public void broadcastMessage(String messageToSend){
-        for(ClientHandler clientHandler : clientHandlers){
-            try{
-                if(!clientHandler.clientUsername.equals(clientUsername)){
-                    clientHandler.bufferWriter.write(messageToSend);
-                    clientHandler.bufferWriter.newLine();
-                    clientHandler.bufferWriter.flush();
-                }
-            }catch (IOException e) {
-                closeEverything(socket,bufferReader,bufferWriter);
-                break;
             }
         }
-    }
-    //inform other clients when a client leaves the chat
-    public void removeClientHandler(){
-        clientHandlers.remove(this);
-        broadcastMessage("SERVEUR : " + clientUsername + " a quitté le chat !");
-    }
-
-    public void closeEverything(Socket socket, BufferedReader bufferedReader, BufferedWriter bufferedWriter){
-        removeClientHandler();
-        try{
-            if(bufferedReader != null){
-                bufferedReader.close();
-            }
-            if(bufferedWriter != null){
-                bufferedWriter.close();
-            }
-            if(socket != null){
-                socket.close();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 }

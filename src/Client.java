@@ -1,87 +1,85 @@
 
+import org.w3c.dom.Text;
+
+import java.awt.*;
 import java.io.*;
 import java.net.*;
-import java.util.Scanner;
 
-public class Client {
+import javafx.application.Application;
+import javafx.scene.Scene;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.input.KeyCode;
+import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
 
-    private Socket socket;
-    private BufferedReader bufferedReader;
-    private BufferedWriter bufferedWriter;
-    private String username;
+public class Client extends Application {
 
-    public Client(Socket socket, String username) {
+//    private Socket socket;
+//    private BufferedReader bufferedReader;
+//    private BufferedWriter bufferedWriter;
+//    private String username;
+
+    private static DatagramSocket socket;
+
+    static {
         try{
-            this.socket = socket;
-            this.bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-            this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            this.username = username;
-        } catch (IOException e) {
-            closeEverything(socket, bufferedReader, bufferedWriter);
+            socket = new DatagramSocket(); //init to any available port
+            InetSocketAddress adresse = new InetSocketAddress("localhost", 50000);
+            socket.bind(adresse);
+        }catch (Exception e){
+            throw new RuntimeException(e);
         }
     }
 
-    public void sendMessage(){
-        try {
-            bufferedWriter.write(username);
-            bufferedWriter.newLine();
-            bufferedWriter.flush();
+    private static final String identifier = "Marcel";
 
-            Scanner scanner = new Scanner(System.in);
-            while (socket.isConnected()){
-                String messageToSend = scanner.nextLine();
-                bufferedWriter.write(username + " : " + messageToSend);
-                bufferedWriter.newLine();
-                bufferedWriter.flush();
-            }
-        } catch (IOException e) {
-            closeEverything(socket, bufferedReader, bufferedWriter);
-        }
-    }
+    private static final int SERVER_PORT = 50000;
 
-    //listen to the messages sent through server
-    public void listenForMessage(){
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                String messageFromGroupChat;
-                while (socket.isConnected()){
-                    try {
-                        messageFromGroupChat =bufferedReader.readLine();
-                        System.out.println(messageFromGroupChat);
-                    } catch (IOException e) {
-                        closeEverything(socket, bufferedReader, bufferedWriter);
-                    }
-                }
-            }
-        }).start();
-    }
+    private static  final TextArea messageArea = new TextArea();
 
-    private void closeEverything(Socket socket, BufferedReader bufferedReader, BufferedWriter bufferedWriter) {
-        try{
-            if(bufferedReader != null){
-                bufferedReader.close();
-            }
-            if(bufferedWriter != null){
-                bufferedWriter.close();
-            }
-            if(socket != null){
-                socket.close();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
+    private static final TextField input = new TextField();
 
     public static void main(String[] args) throws IOException {
-        Scanner scanner = new Scanner(System.in);
-        System.out.println("Entrez votre nom d'utilisateur pour le group chat : ");
-        String username = scanner.nextLine();
-        Socket socket = new Socket("localhost", 50000);
-        Client client = new Client (socket, username);
-        client.listenForMessage();
-        client.sendMessage();
+        ClientHandler clientHandler = new ClientHandler(socket, messageArea);
+        clientHandler.start();
 
+        //send initialization message to the server
+        byte[] initMessage = ("init : " + identifier).getBytes();
+        DatagramPacket init = new DatagramPacket(initMessage, initMessage.length, socket.getInetAddress(), SERVER_PORT);
+        socket.send(init);
+
+        launch();
+
+    }
+    @Override
+    public void start(Stage primaryStage) {
+
+        messageArea.setMaxWidth(500);
+        messageArea.setEditable(false);
+
+
+        input.setMaxWidth(500);
+        input.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                String temp = identifier + ";" + input.getText(); // message to send
+                messageArea.setText(messageArea.getText() + input.getText() + "\n"); // update messages on screen
+                byte[] msg = temp.getBytes(); // convert to bytes
+                input.setText(""); // remove text from input box
+
+                // create a packet & send
+                DatagramPacket send = new DatagramPacket(msg, msg.length, socket.getInetAddress(), SERVER_PORT);
+                try {
+                    socket.send(send);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
+        // put everything on screen
+        Scene scene = new Scene(new VBox(35, messageArea, input), 550, 300);
+        primaryStage.setScene(scene);
+        primaryStage.show();
     }
 
 }
