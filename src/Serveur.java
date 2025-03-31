@@ -6,7 +6,7 @@ public class Serveur {
 
     private static final int PORT = 50000;
     private static DatagramSocket socket;
-    private static Map<String, ClientInfo> clients = new HashMap<>();  // Mapping des clients par identifiant
+    private static ClientHandler Gestionnaire = new ClientHandler(socket);
 
     static {
         try {
@@ -31,7 +31,7 @@ public class Serveur {
                 // Si le message contient "init", il s'agit d'une initialisation
                 if (message.contains("init")) {
                     String clientId = message.split(":")[1].trim();  // Identifier l'utilisateur
-                    clients.put(clientId, new ClientInfo(packetRecu.getAddress(), packetRecu.getPort()));
+                    Gestionnaire.addClient(clientId, packetRecu);
                     System.out.println("Client " + clientId + " ajouté avec le port : " + packetRecu.getPort());
                 } else {
                     // Exemple : format attendu -> "destinataire:message"
@@ -41,10 +41,10 @@ public class Serveur {
                         String messageToSend = parts[1].trim();
 
                         // Si le destinataire existe, on lui envoie le message
-                        ClientInfo recipient = clients.get(recipientId);
-                        if (recipient != null) {
+                        
+                        if (Gestionnaire.clients.get(recipientId) != null) {
                             byte[] byteMessage = messageToSend.getBytes();
-                            DatagramPacket forward = new DatagramPacket(byteMessage, byteMessage.length, recipient.getAddress(), recipient.getPort());
+                            DatagramPacket forward = new DatagramPacket(byteMessage, byteMessage.length, Gestionnaire.clients.get(recipientId).getAddress(), Gestionnaire.clients.get(recipientId).getPort());
                             socket.send(forward);
                             System.out.println("Message envoyé à " + recipientId);
                         }
@@ -57,21 +57,5 @@ public class Serveur {
     }
 
     // Classe interne pour stocker les informations d'un client (adresse et port)
-    private static class ClientInfo {
-        private InetAddress address;
-        private int port;
-
-        public ClientInfo(InetAddress address, int port) {
-            this.address = address;
-            this.port = port;
-        }
-
-        public InetAddress getAddress() {
-            return address;
-        }
-
-        public int getPort() {
-            return port;
-        }
-    }
+   
 }
