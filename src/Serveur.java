@@ -1,104 +1,77 @@
-
-import java.io.IOException;
 import java.net.*;
-import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Serveur {
-    private static byte[] recues = new byte[1024];
-    private static final int PORT = 50000;
 
+    private static final int PORT = 50000;
     private static DatagramSocket socket;
+    private static Map<String, ClientInfo> clients = new HashMap<>();  // Mapping des clients par identifiant
 
     static {
-        try{
+        try {
             socket = new DatagramSocket(PORT);
-            InetSocketAddress adresse = new InetSocketAddress("localhost", 50000);
-            socket.bind(adresse);
-        }catch (Exception e){
-            System.out.println(e);
+        } catch (Exception e) {
+            System.out.println("Erreur lors de l'initialisation du serveur : " + e.getMessage());
         }
     }
 
-    private static ArrayList<Integer> clients = new ArrayList<>();
+    public static void main(String[] args) {
+        System.out.println("Serveur démarré sur le port " + PORT);
 
+        while (true) {
+            try {
+                byte[] buffer = new byte[1024];
+                DatagramPacket packetRecu = new DatagramPacket(buffer, buffer.length);
+                socket.receive(packetRecu);
+                String message = new String(packetRecu.getData(), 0, packetRecu.getLength());
 
-//    public void startServer() {
-//        try {
-//
-//            byte[] envoyees; //tampon de réception
-//
-//            while(!serverSocket.isClosed()) {
-//                //recevoir
-//                DatagramPacket paquetRecu = new DatagramPacket(recues, recues.length);
-//                serverSocket.receive(paquetRecu);
-//                String message = new String(paquetRecu.getData(), 0, paquetRecu.getLength());
-//
-//                System.out.println("Un nouveau client s'est connecté");
-//                ClientHandler clientHandler = new ClientHandler(serverSocket);
-//                Thread thread = new Thread(clientHandler);
-//                thread.start();
-//            }
-//
-//
-//        }
-//        catch (Exception e) {
-//            System.err.println(e);
-//        }
-//    }
+                System.out.println("Message reçu du client : " + message);
 
-//    public void closeServerSocket(){
-//        try{
-//            if(serverSocket!=null){
-//                serverSocket.close();
-//            }
-//
-//        }catch (Exception e){
-//            System.err.println(e);
-//        }
-//    }
+                // Si le message contient "init", il s'agit d'une initialisation
+                if (message.contains("init")) {
+                    String clientId = message.split(":")[1].trim();  // Identifier l'utilisateur
+                    clients.put(clientId, new ClientInfo(packetRecu.getAddress(), packetRecu.getPort()));
+                    System.out.println("Client " + clientId + " ajouté avec le port : " + packetRecu.getPort());
+                } else {
+                    // Exemple : format attendu -> "destinataire:message"
+                    String[] parts = message.split(":");
+                    if (parts.length == 2) {
+                        String recipientId = parts[0].trim();
+                        String messageToSend = parts[1].trim();
 
-    public static void main(String[] args) throws IOException {
-
-
-//        DatagramSocket datagramSocket = new DatagramSocket(null);
-//        InetSocketAddress adresse = new InetSocketAddress("localhost", 50000);
-//        datagramSocket.bind(adresse);
-//        Serveur serveur = new Serveur(datagramSocket);
-//        serveur.startServer();
-
-        System.out.println("Le serveur a démarré sur le port : " + PORT);
-
-        while(true){
-            DatagramPacket paquetRecu = new DatagramPacket(recues, recues.length);
-            try{
-                socket.receive(paquetRecu);
-            }catch (IOException e){
-                throw new RuntimeException(e);
-            }
-
-            String message = new String(paquetRecu.getData(), 0, paquetRecu.getLength());
-            System.out.println("Le serveur a reçu le message : " + message);
-
-            if(message.contains("init")){
-                clients.add(paquetRecu.getPort());
-                //envoyer un message à tous les autres clients deja connectés
-
-            } else {
-                int clientPort = paquetRecu.getPort();
-                byte[] byteMessage = message.getBytes();
-
-                for (int forwardPort : clients) {
-                    if(forwardPort != clientPort){
-                        DatagramPacket forward = new DatagramPacket(byteMessage, byteMessage.length, socket.getInetAddress(), forwardPort );
-                        try{
+                        // Si le destinataire existe, on lui envoie le message
+                        ClientInfo recipient = clients.get(recipientId);
+                        if (recipient != null) {
+                            byte[] byteMessage = messageToSend.getBytes();
+                            DatagramPacket forward = new DatagramPacket(byteMessage, byteMessage.length, recipient.getAddress(), recipient.getPort());
                             socket.send(forward);
-                        } catch (IOException e){
-                            throw new RuntimeException(e);
+                            System.out.println("Message envoyé à " + recipientId);
                         }
                     }
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
+        }
+    }
 
+    // Classe interne pour stocker les informations d'un client (adresse et port)
+    private static class ClientInfo {
+        private InetAddress address;
+        private int port;
+
+        public ClientInfo(InetAddress address, int port) {
+            this.address = address;
+            this.port = port;
+        }
+
+        public InetAddress getAddress() {
+            return address;
+        }
+
+        public int getPort() {
+            return port;
         }
     }
 }

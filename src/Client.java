@@ -1,85 +1,51 @@
-
-import org.w3c.dom.Text;
-
-import java.awt.*;
-import java.io.*;
 import java.net.*;
+import java.io.*;
+import java.util.Scanner;
 
-import javafx.application.Application;
-import javafx.scene.Scene;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
-import javafx.scene.input.KeyCode;
-import javafx.scene.layout.VBox;
-import javafx.stage.Stage;
-
-public class Client extends Application {
-
-//    private Socket socket;
-//    private BufferedReader bufferedReader;
-//    private BufferedWriter bufferedWriter;
-//    private String username;
+public class Client {
 
     private static DatagramSocket socket;
+    private static String identifier;  // Nom de l'utilisateur
+    private static final int SERVER_PORT = 50000;
+    private static Scanner scanner = new Scanner(System.in);
 
     static {
-        try{
-            socket = new DatagramSocket(); //init to any available port
-            InetSocketAddress adresse = new InetSocketAddress("localhost", 50000);
-            socket.bind(adresse);
-        }catch (Exception e){
+        try {
+            socket = new DatagramSocket();  // Le système va choisir un port disponible
+
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    private static final String identifier = "Marcel";
-
-    private static final int SERVER_PORT = 50000;
-
-    private static  final TextArea messageArea = new TextArea();
-
-    private static final TextField input = new TextField();
-
     public static void main(String[] args) throws IOException {
-        ClientHandler clientHandler = new ClientHandler(socket, messageArea);
-        clientHandler.start();
-
-        //send initialization message to the server
+        // Envoie un message d'initialisation pour s'enregistrer auprès du serveur
+        System.out.println("Entrez votre nom d'utilisateur");
+        String identifier = scanner.nextLine();
         byte[] initMessage = ("init : " + identifier).getBytes();
-        DatagramPacket init = new DatagramPacket(initMessage, initMessage.length, socket.getInetAddress(), SERVER_PORT);
-        socket.send(init);
+        DatagramPacket initPacket = new DatagramPacket(initMessage, initMessage.length, InetAddress.getByName("localhost"), SERVER_PORT);
+        socket.send(initPacket);
 
-        launch();
+        // Démarrer un thread pour recevoir les messages du serveur
+        ClientHandler clientHandler = new ClientHandler(socket);
+        Thread handlerThread = new Thread(clientHandler);
+        handlerThread.start();
 
-    }
-    @Override
-    public void start(Stage primaryStage) {
-
-        messageArea.setMaxWidth(500);
-        messageArea.setEditable(false);
-
-
-        input.setMaxWidth(500);
-        input.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.ENTER) {
-                String temp = identifier + ";" + input.getText(); // message to send
-                messageArea.setText(messageArea.getText() + input.getText() + "\n"); // update messages on screen
-                byte[] msg = temp.getBytes(); // convert to bytes
-                input.setText(""); // remove text from input box
-
-                // create a packet & send
-                DatagramPacket send = new DatagramPacket(msg, msg.length, socket.getInetAddress(), SERVER_PORT);
-                try {
-                    socket.send(send);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+        // Permet à l'utilisateur d'envoyer un message à un autre utilisateur
+        while (true) {
+            System.out.println("Entrez le nom de l'utilisateur à qui vous voulez envoyer un message (ou 'exit' pour quitter) :");
+            String recipient = scanner.nextLine();
+            if (recipient.equals("exit")) {
+                break;
             }
-        });
-        // put everything on screen
-        Scene scene = new Scene(new VBox(35, messageArea, input), 550, 300);
-        primaryStage.setScene(scene);
-        primaryStage.show();
-    }
 
+            System.out.println("Entrez votre message :");
+            String message = scanner.nextLine();
+
+            String fullMessage = recipient + ":" + message;
+            byte[] messageBytes = fullMessage.getBytes();
+            DatagramPacket messagePacket = new DatagramPacket(messageBytes, messageBytes.length, InetAddress.getByName("localhost"), SERVER_PORT);
+            socket.send(messagePacket);
+        }
+    }
 }
