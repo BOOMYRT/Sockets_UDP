@@ -1,51 +1,83 @@
 import java.net.*;
-import java.util.HashMap;
-import java.util.Map;
 
 public class ClientHandler implements Runnable {
     private DatagramSocket socket;
-    public static Map<String, ClientInfo> clients = new HashMap<>();  // Mapping des clients par identifiant
-    
+    private String username;
+    private Serveur serveur;
+    private InetAddress clientAddress;
+    private int clientPort;
 
-    public ClientHandler(DatagramSocket socket) {
-        
-        this.socket = socket;
+    public ClientHandler(DatagramSocket socket, String username, Serveur serveur, InetAddress clientAddress,
+            int clientPort) {
+        try {
+            this.socket = socket;
+            this.username = username;
+            this.serveur = serveur;
+            this.clientAddress = clientAddress;
+            this.clientPort = clientPort;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
     }
 
-    public void addClient(String clientId, DatagramPacket packetRecu) {
-        clients.put(clientId, new ClientInfo(packetRecu.getAddress(), packetRecu.getPort()));
+    public DatagramSocket getSocket() {
+        return this.socket;
+    }
+
+    public String getUsername() {
+        return this.username;
     }
 
     @Override
     public void run() {
         byte[] buffer = new byte[1024];
         while (true) {
-            DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
             try {
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
+
+                // Mémoriser l’adresse et le port du client
+                if (clientAddress == null) {
+                    clientAddress = packet.getAddress();
+                    clientPort = packet.getPort();
+                }
+
                 String message = new String(packet.getData(), 0, packet.getLength());
-                System.out.println("Message reçu : " + message);  // Afficher dans la console
+
+                if (message.startsWith("all")) { // Message public
+                    String[] parts = message.split(":", 2);
+                    if (parts.length > 1) {
+                        serveur.broadcast(username, parts[1]);
+                    }
+
+                } else if (message.startsWith("exit")) {
+                    System.out.println(username + " s'est déconnecté(e).");
+                    serveur.removeClient(username);
+                    socket.close(); // libère le port dédié
+                    break;
+                } else { // Message privé
+                    String[] parts = message.split(":", 2);
+                    if (parts.length > 1) {
+                        String recipient = parts[0]; // Récupérer le pseudo
+                        serveur.sendPrivateMessage(username, recipient, parts[1]);
+                    }
+                }
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
     }
 
-    public static class ClientInfo {
-        private InetAddress address;
-        private int port;
-
-        public ClientInfo(InetAddress address, int port) {
-            this.address = address;
-            this.port = port;
-        }
-
-        public InetAddress getAddress() {
-            return address;
-        }
-
-        public int getPort() {
-            return port;
+    public void sendMessage(String message) {
+        try {
+            if (clientAddress != null) {
+                byte[] buffer = message.getBytes();
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length, clientAddress, clientPort);
+                socket.send(packet);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }
