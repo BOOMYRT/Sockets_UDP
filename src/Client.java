@@ -65,17 +65,21 @@ public class Client {
 
             // Thread pour recevoir les messages
             new Thread(() -> {
-                byte[] buffer = new byte[1024];
-                while (true) {
-                    try {
+                try {
+                    byte[] buffer = new byte[1024];
+                    while (true) {
+
                         DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                         socket.receive(packet);
                         String message = new String(packet.getData(), 0, packet.getLength());
                         System.out.println("\n" + message + "\n");
                         System.out.println("Destinataire ('all' pour Broadcast | 'exit' pour quitter) :");
-                    } catch (Exception e) {
-                        e.printStackTrace();
+
                     }
+                } catch (SocketException e) {
+                    System.out.println("Déconnexion du client, socket fermé proprement");
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
             }).start();
 
